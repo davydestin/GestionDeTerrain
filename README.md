@@ -266,7 +266,7 @@ classDiagram
 | Backend Laravel + PostgreSQL | Render (Docker) | `render.yaml`, `backend/Dockerfile`, `backend/docker/start.sh` |
 | Frontend React | Vercel | `frontend/vercel.json`, `frontend/.env.production` |
 
-1. **Render** → *New* → *Blueprint* → dépôt `GestionDeTerrain`. Renseigner les variables demandées : `APP_URL`, `CORS_ALLOWED_ORIGINS` (adresse Vercel complète), `SANCTUM_STATEFUL_DOMAINS` (domaine Vercel sans `https://`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `NOMINATIM_USER_AGENT`. Au démarrage, le conteneur lance les migrations et crée le compte administrateur.
+1. **Render** → *New* → *Blueprint* → dépôt `GestionDeTerrain`. Renseigner les variables demandées : `APP_URL`, `CORS_ALLOWED_ORIGINS` (origine exacte, sans slash final, par exemple `https://gestion-de-terrain.vercel.app`), `SANCTUM_STATEFUL_DOMAINS` (domaine Vercel sans `https://`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `NOMINATIM_USER_AGENT`. Au démarrage, le conteneur lance les migrations et crée le compte administrateur.
 2. **Vercel** → *Add New* → *Project* → même dépôt, **Root Directory : `frontend`**. Rien d'autre à configurer.
 3. **Google Cloud Console** : ajouter l'adresse Vercel aux origines JavaScript autorisées de l'ID client.
 
