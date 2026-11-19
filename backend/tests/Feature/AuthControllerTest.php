@@ -16,10 +16,9 @@ class AuthControllerTest extends TestCase
 
     public function test_client_can_register_and_authenticate_with_the_spa_session(): void
     {
-        $response = $this->withHeaders([
-            'Origin' => 'http://localhost:5173',
-            'Referer' => 'http://localhost:5173',
-        ])->postJson('/api/register', [
+        $headers = ['Origin' => 'http://localhost:5173', 'Referer' => 'http://localhost:5173'];
+
+        $this->withHeaders($headers)->postJson('/api/register', [
             'nom' => 'Diallo',
             'prenom' => 'Awa',
             'email' => 'awa@example.com',
@@ -27,28 +26,19 @@ class AuthControllerTest extends TestCase
             'role' => User::ROLE_ADMINISTRATEUR,
             'password' => 'Password123!',
             'password_confirmation' => 'Password123!',
-        ]);
-
-        $response
-            ->assertCreated()
-            ->assertJsonPath('user.role', User::ROLE_CLIENT);
+        ])->assertCreated()->assertJsonPath('user.role', User::ROLE_CLIENT);
 
         $user = User::where('email', 'awa@example.com')->firstOrFail();
         $this->assertAuthenticatedAs($user, 'web');
-
-        $this->withHeaders([
-            'Origin' => 'http://localhost:5173',
-            'Referer' => 'http://localhost:5173',
-        ])->getJson('/api/user')
-            ->assertOk()
-            ->assertJsonPath('user.email', 'awa@example.com');
-
-        $this->withHeaders([
-            'Origin' => 'http://localhost:5173',
-            'Referer' => 'http://localhost:5173',
-        ])->postJson('/api/logout')->assertOk();
-
+        $this->withHeaders($headers)->getJson('/api/user')->assertOk()->assertJsonPath('user.email', 'awa@example.com');
+        $this->withHeaders($headers)->postJson('/api/logout')->assertOk();
         $this->assertGuest('web');
+
+        // Le client se reconnecte ensuite avec son e-mail et son mot de passe.
+        $this->withHeaders($headers)->postJson('/api/login', [
+            'email' => 'awa@example.com',
+            'password' => 'Password123!',
+        ])->assertOk()->assertJsonPath('user.id', $user->id);
     }
 
     public function test_registration_rejects_an_existing_email(): void
@@ -68,11 +58,12 @@ class AuthControllerTest extends TestCase
             ->assertJsonValidationErrors('email');
     }
 
-    public function test_active_client_can_log_in_but_disabled_client_cannot(): void
+    public function test_active_manager_can_log_in_with_password_but_disabled_one_cannot(): void
     {
         User::factory()->create([
             'email' => 'active@example.com',
             'password' => 'Password123!',
+            'role' => User::ROLE_GESTIONNAIRE,
         ]);
 
         $headers = [
@@ -91,6 +82,7 @@ class AuthControllerTest extends TestCase
         User::factory()->create([
             'email' => 'disabled@example.com',
             'password' => 'Password123!',
+            'role' => User::ROLE_GESTIONNAIRE,
             'statut' => false,
         ]);
 
@@ -116,7 +108,7 @@ class AuthControllerTest extends TestCase
     public function test_only_administrators_can_assign_supported_roles(): void
     {
         $client = User::factory()->create(['role' => User::ROLE_CLIENT]);
-        $target = User::factory()->create();
+        $target = User::factory()->create(['role' => User::ROLE_GESTIONNAIRE]);
         $path = '/api/admin/users/'.$target->id.'/role';
 
         $this->actingAs($client, 'web')->patchJson($path, [
@@ -132,20 +124,57 @@ class AuthControllerTest extends TestCase
         Auth::forgetGuards();
         $administrator = User::factory()->create(['role' => User::ROLE_ADMINISTRATEUR]);
 
-        foreach (User::ROLES as $role) {
-            $this->actingAs($administrator, 'web')->patchJson($path, [
-                'role' => $role,
-            ])->assertOk()->assertJsonPath('user.role', $role);
-        }
-
         $this->actingAs($administrator, 'web')->patchJson($path, [
             'role' => 'SUPER_ADMIN',
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('role');
 
+        // Le compte passant client en dernier : il n'est plus modifiable ensuite.
+        foreach ([User::ROLE_ADMINISTRATEUR, User::ROLE_GESTIONNAIRE, User::ROLE_CLIENT] as $role) {
+            $this->actingAs($administrator, 'web')->patchJson($path, [
+                'role' => $role,
+            ])->assertOk()->assertJsonPath('user.role', $role);
+        }
+
         $this->patchJson('/api/admin/users/'.$administrator->id.'/role', [
             'role' => User::ROLE_CLIENT,
         ])->assertStatus(409);
+    }
+
+    public function test_administrator_cannot_modify_a_client_account(): void
+    {
+        $administrator = User::factory()->create(['role' => User::ROLE_ADMINISTRATEUR]);
+        $client = User::factory()->create(['role' => User::ROLE_CLIENT, 'prenom' => 'Awa']);
+
+        $this->actingAs($administrator, 'web')
+            ->patchJson('/api/admin/users/'.$client->id, ['prenom' => 'Modifié', 'statut' => false])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Un administrateur ne peut pas modifier un compte client : seul le client peut modifier son profil.');
+
+        $this->patchJson('/api/admin/users/'.$client->id.'/role', ['role' => User::ROLE_GESTIONNAIRE])
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', [
+            'id' => $client->id,
+            'prenom' => 'Awa',
+            'role' => User::ROLE_CLIENT,
+            'statut' => true,
+        ]);
+
+        // Le client garde la main sur son propre profil.
+        Auth::forgetGuards();
+        $this->actingAs($client->fresh(), 'web')
+            ->patchJson('/api/user', ['prenom' => 'Aïssatou'])
+            ->assertOk();
+        $this->assertDatabaseHas('users', ['id' => $client->id, 'prenom' => 'Aïssatou']);
+
+        // Les autres comptes restent modifiables.
+        $manager = User::factory()->create(['role' => User::ROLE_GESTIONNAIRE]);
+        Auth::forgetGuards();
+        $this->actingAs($administrator, 'web')
+            ->patchJson('/api/admin/users/'.$manager->id, ['prenom' => 'Moussa'])
+            ->assertOk()
+            ->assertJsonPath('user.prenom', 'Moussa');
     }
 
     public function test_administrator_can_filter_users_by_search_role_and_status(): void

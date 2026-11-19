@@ -7,7 +7,15 @@ import HomePage from './pages/public/HomePage.jsx'
 import TerrainDetailPage from './pages/public/TerrainDetailPage.jsx'
 import TerrainsPage from './pages/public/TerrainsPage.jsx'
 import ClientProfilePage from './pages/client/ClientProfilePage.jsx'
+import ClientReservationsPage from './pages/client/ClientReservationsPage.jsx'
 import RoleDashboard from './pages/shared/RoleDashboard.jsx'
+import JournalAuditPage from './pages/administrateur/JournalAuditPage.jsx'
+import LogsPage from './pages/administrateur/LogsPage.jsx'
+import WorkspaceLayout from './components/WorkspaceLayout.jsx'
+import MesTerrainsPage from './pages/gestionnaire/MesTerrainsPage.jsx'
+import ReservationsPage from './pages/gestionnaire/ReservationsPage.jsx'
+import NouveauTerrainPage from './pages/gestionnaire/NouveauTerrainPage.jsx'
+import TerrainGestionPage from './pages/gestionnaire/TerrainGestionPage.jsx'
 import PublicLayout from './layouts/PublicLayout.jsx'
 import { RequireAuth, RequireGuest, RequireRole } from './Routes/RouteGuards.jsx'
 
@@ -43,14 +51,28 @@ function RoutedApp() {
 
         <Route element={<RequireAuth />}>
           <Route element={<RequireRole roles={['CLIENT']} />}>
-            <Route path="/client/reservations" element={<RoleDashboard />} />
-            <Route path="/client/profil" element={<ClientProfilePage />} />
+            <Route element={<WorkspaceLayout />}>
+              <Route path="/client/terrains" element={<TerrainsPage basePath="/client/terrains" embedded mapPath="/client/carte" />} />
+              <Route path="/client/terrains/:terrainId" element={<TerrainDetailPage basePath="/client/terrains" embedded mapPath="/client/carte" />} />
+              <Route path="/client/carte" element={<CarteTerrainsPage basePath="/client/terrains" embedded />} />
+              <Route path="/client/reservations" element={<ClientReservationsPage />} />
+              <Route path="/client/profil" element={<ClientProfilePage />} />
+            </Route>
           </Route>
           <Route element={<RequireRole roles={['GESTIONNAIRE']} />}>
-            <Route path="/gestionnaire/terrains" element={<RoleDashboard />} />
+            <Route element={<WorkspaceLayout />}>
+              <Route path="/gestionnaire/reservations" element={<ReservationsPage />} />
+              <Route path="/gestionnaire/terrains" element={<MesTerrainsPage />} />
+              <Route path="/gestionnaire/terrains/nouveau" element={<NouveauTerrainPage />} />
+              <Route path="/gestionnaire/terrains/:terrainId" element={<TerrainGestionPage />} />
+            </Route>
           </Route>
           <Route element={<RequireRole roles={['ADMINISTRATEUR']} />}>
-            <Route path="/administrateur/utilisateurs" element={<RoleDashboard />} />
+            <Route element={<WorkspaceLayout />}>
+              <Route path="/administrateur/utilisateurs" element={<RoleDashboard />} />
+              <Route path="/administrateur/journal" element={<JournalAuditPage />} />
+              <Route path="/administrateur/logs" element={<LogsPage />} />
+            </Route>
           </Route>
         </Route>
 

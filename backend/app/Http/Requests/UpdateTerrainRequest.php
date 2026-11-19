@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Terrain;
+use App\Support\DakarBounds;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -41,21 +42,18 @@ class UpdateTerrainRequest extends FormRequest
                 return;
             }
 
-            if (! $this->exists('latitude') && ! $this->exists('longitude')) {
-                return;
-            }
-
+            // Coordonnées finales = valeurs envoyées, sinon celles déjà enregistrées.
             $terrain = $this->route('terrain');
-            $latitude = $this->input('latitude', $terrain->latitude);
-            $longitude = $this->input('longitude', $terrain->longitude);
+            $latitude = $this->exists('latitude') ? $this->input('latitude') : $terrain->latitude;
+            $longitude = $this->exists('longitude') ? $this->input('longitude') : $terrain->longitude;
 
-            if (($latitude === null) !== ($longitude === null)) {
-                $validator->errors()->add('latitude', 'La latitude et la longitude doivent être renseignées ensemble.');
+            if ($latitude === null || $longitude === null) {
+                $validator->errors()->add('latitude', 'Une position valide doit être sélectionnée sur la carte.');
 
                 return;
             }
 
-            if ($latitude !== null && ! \App\Support\DakarBounds::contains((float) $latitude, (float) $longitude)) {
+            if (! DakarBounds::contains((float) $latitude, (float) $longitude)) {
                 $validator->errors()->add('latitude', 'Les coordonnées sont en dehors du périmètre configuré de Dakar.');
             }
         }];

@@ -1,42 +1,52 @@
 import { useEffect, useState } from 'react'
-import { cancelReservation, createPayment, roleData } from '../../services/api.js'
+import { Link, useLocation } from 'react-router-dom'
+import { cancelReservation, readJson, roleData } from '../../services/api.js'
+import Icon from '../../components/Icon.jsx'
 
-const methods = [
-  ['WAVE', 'Wave'],
-  ['ORANGE_MONEY', 'Orange Money'],
-  ['FREE_MONEY', 'Free Money'],
-  ['ESPECES', 'Espèces'],
-  ['CARTE', 'Carte'],
-]
+const readResponse = (response) => readJson(response)
 
-async function readResponse(response) {
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const validationMessage = Object.values(payload.errors || {}).flat()[0]
-    throw new Error(validationMessage || payload.message || 'Une erreur est survenue.')
-  }
-
-  return payload
+// Ce que chaque statut signifie pour le client (le paiement se règle sur WhatsApp, hors application).
+const STATUSES = {
+  EN_ATTENTE: {
+    label: 'En attente de validation',
+    style: 'bg-[#ffb59f]/15 text-[#ffb59f]',
+    help: 'Le gestionnaire doit valider votre demande. Vous serez notifié dès qu’il l’aura traitée.',
+  },
+  CONFIRMEE: {
+    label: 'Confirmée',
+    style: 'bg-[#b6f23a]/15 text-[#d6f79a]',
+    help: 'Le gestionnaire vous contacte sur WhatsApp pour convenir du paiement.',
+  },
+  REFUSEE: { label: 'Refusée', style: 'bg-white/10 text-[#cfd6c9]', help: 'Le gestionnaire n’a pas pu accepter ce créneau. Essayez un autre horaire.' },
+  ANNULEE: { label: 'Annulée', style: 'bg-white/10 text-[#cfd6c9]', help: null },
+  TERMINEE: { label: 'Terminée', style: 'bg-white/10 text-[#cfd6c9]', help: null },
 }
 
-function formatDate(value) {
-  if (!value) return '—'
+const FILTERS = [
+  { value: '', label: 'Toutes' },
+  { value: 'EN_ATTENTE', label: 'En attente' },
+  { value: 'CONFIRMEE', label: 'Confirmées' },
+  { value: 'PASSEES', label: 'Passées et annulées' },
+]
 
-  return new Intl.DateTimeFormat('fr-FR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+const dayFormat = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+const timeFormat = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' })
+
+function matchesFilter(reservation, filter) {
+  if (!filter) return true
+  if (filter === 'PASSEES') return !['EN_ATTENTE', 'CONFIRMEE'].includes(reservation.statut) || new Date(reservation.date_fin) < new Date()
+  return reservation.statut === filter && new Date(reservation.date_fin) >= new Date()
 }
 
 export default function ClientReservationsPage() {
+  const location = useLocation()
   const [reservations, setReservations] = useState([])
-  const [statusFilter, setStatusFilter] = useState('')
-  const [paymentForms, setPaymentForms] = useState({})
-  const [busyReservationId, setBusyReservationId] = useState(null)
+  const [filter, setFilter] = useState('')
+  const [askingCancelId, setAskingCancelId] = useState(null)
+  const [busyId, setBusyId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState(location.state?.notice || '')
 
   useEffect(() => {
     let active = true
@@ -58,157 +68,142 @@ export default function ClientReservationsPage() {
     }
   }, [])
 
-  function updatePaymentForm(reservationId, field, value) {
-    setPaymentForms((current) => ({
-      ...current,
-      [reservationId]: { method: 'WAVE', reference: '', ...current[reservationId], [field]: value },
-    }))
-  }
-
-  async function submitPayment(event, reservation) {
-    event.preventDefault()
-    const form = paymentForms[reservation.id] || { method: 'WAVE', reference: '' }
-    setBusyReservationId(reservation.id)
-    setError('')
-    setNotice('')
-
-    try {
-      const payload = await readResponse(await createPayment(reservation.id, {
-        methode: form.method,
-        reference_transaction: form.method === 'ESPECES' ? null : form.reference,
-      }))
-      setReservations((current) => current.map((item) => (
-        item.id === reservation.id
-          ? { ...item, paiements: [payload.paiement, ...(item.paiements || [])] }
-          : item
-      )))
-      setNotice('Tentative de paiement enregistrée. Elle sera confirmée après vérification.')
-      setPaymentForms((current) => ({ ...current, [reservation.id]: { method: 'WAVE', reference: '' } }))
-    } catch (requestError) {
-      setError(requestError.message)
-    } finally {
-      setBusyReservationId(null)
-    }
-  }
-
-  async function handleCancel(reservation) {
-    if (!window.confirm('Annuler cette réservation ?')) return
-
-    setBusyReservationId(reservation.id)
+  async function cancel(reservation) {
+    setBusyId(reservation.id)
     setError('')
     setNotice('')
 
     try {
       const payload = await readResponse(await cancelReservation(reservation.id))
       setReservations((current) => current.map((item) => (
-        item.id === reservation.id ? payload.reservation : item
+        item.id === reservation.id ? { ...item, statut: payload.reservation.statut } : item
       )))
-      setNotice('Réservation annulée.')
+      setNotice('Réservation annulée. Le gestionnaire a été prévenu.')
     } catch (requestError) {
       setError(requestError.message)
     } finally {
-      setBusyReservationId(null)
+      setBusyId(null)
+      setAskingCancelId(null)
     }
   }
 
-  const visibleReservations = statusFilter
-    ? reservations.filter((reservation) => reservation.statut === statusFilter)
-    : reservations
+  const visible = reservations.filter((reservation) => matchesFilter(reservation, filter))
 
   return (
-    <section className="space-y-5">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-[11px] font-bold uppercase text-[#b6f23a]">Espace client</p>
-          <h1 className="mt-1 font-heading text-2xl font-semibold text-[#f3f5ef]">Mes réservations</h1>
+          <p className="eyebrow">Espace client</p>
+          <h1 className="font-display text-3xl font-semibold uppercase text-[#f3f5ef] sm:text-4xl">Mes réservations</h1>
         </div>
-        <label className="grid gap-1 text-[10px] font-bold text-[#cfd6c9]">
-          Historique par statut
-          <select className="h-10 min-w-48 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-normal" onChange={(event) => setStatusFilter(event.target.value)} value={statusFilter}>
-            <option value="">Toutes</option>
-            {['EN_ATTENTE', 'CONFIRMEE', 'ANNULEE', 'REFUSEE', 'TERMINEE'].map((status) => <option key={status} value={status}>{status.replace('_', ' ')}</option>)}
-          </select>
-        </label>
+        <Link className="rounded-full bg-[#b6f23a] px-5 py-2.5 text-xs font-bold text-[#0b0f0c] hover:bg-[#9ad92a]" to="/client/terrains">
+          Réserver un terrain
+        </Link>
       </div>
 
+      <div className="flex flex-wrap gap-1 rounded-full border border-white/10 bg-white/[0.04] p-1 sm:w-fit" role="group" aria-label="Filtrer les réservations">
+        {FILTERS.map((item) => (
+          <button
+            aria-pressed={filter === item.value}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${filter === item.value ? 'bg-[#b6f23a] text-[#0b0f0c]' : 'text-[#cfd6c9] hover:bg-white/10'}`}
+            key={item.value || 'toutes'}
+            onClick={() => setFilter(item.value)}
+            type="button"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {notice && (
+        <p className="flex items-start justify-between gap-3 rounded-xl border border-[#b6f23a]/30 bg-[#b6f23a]/10 px-3 py-2 text-sm text-[#d6f79a]" role="status">
+          {notice}
+          <button aria-label="Fermer" className="grid size-5 shrink-0 place-items-center rounded-full opacity-70 hover:bg-white/10 hover:opacity-100" onClick={() => setNotice('')} type="button"><Icon className="size-3.5" name="close" /></button>
+        </p>
+      )}
       {error && <p className="rounded-xl border border-[#ff6b4a]/30 bg-[#ff6b4a]/10 px-3 py-2 text-sm text-[#ff9b84]" role="alert">{error}</p>}
-      {notice && <p className="rounded-xl border border-[#b6f23a]/30 bg-[#b6f23a]/10 px-3 py-2 text-sm text-[#b6f23a]" role="status">{notice}</p>}
 
       {loading ? (
-        <p className="border-y border-white/10 py-8 text-sm text-[#88927f]">Chargement des réservations…</p>
-      ) : visibleReservations.length === 0 ? (
-        <p className="border-y border-white/10 py-8 text-sm text-[#88927f]">Aucune réservation pour ce filtre.</p>
+        <div className="space-y-3" aria-busy="true">
+          {[0, 1].map((index) => <div className="h-32 skeleton" key={index} />)}
+        </div>
+      ) : reservations.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-white/15 px-6 py-10 text-center">
+          <p className="text-sm font-semibold text-[#f3f5ef]">Vous n’avez pas encore réservé de terrain</p>
+          <p className="mt-1 text-xs text-[#88927f]">Choisissez un terrain, un créneau, et le gestionnaire vous recontacte sur WhatsApp.</p>
+          <Link className="mt-4 inline-block rounded-full bg-[#b6f23a] px-5 py-2.5 text-xs font-bold text-[#0b0f0c]" to="/client/terrains">Voir les terrains</Link>
+        </div>
+      ) : visible.length === 0 ? (
+        <p className="rounded-2xl border border-white/10 px-6 py-8 text-center text-sm text-[#88927f]">Aucune réservation pour ce filtre.</p>
       ) : (
-        <div className="divide-y divide-white/10 border-y border-white/10">
-          {visibleReservations.map((reservation) => {
-            const payments = reservation.paiements || []
-            const isPaid = payments.some((payment) => payment.statut === 'PAYE')
-            const canPay = ['EN_ATTENTE', 'CONFIRMEE'].includes(reservation.statut) && !isPaid
-            const canCancel = ['EN_ATTENTE', 'CONFIRMEE'].includes(reservation.statut)
-            const form = paymentForms[reservation.id] || { method: 'WAVE', reference: '' }
+        <ul className="space-y-3">
+          {visible.map((reservation, index) => {
+            const status = STATUSES[reservation.statut] || { label: reservation.statut, style: 'bg-white/10 text-[#cfd6c9]' }
+            const start = new Date(reservation.date_debut)
+            const end = new Date(reservation.date_fin)
+            const upcoming = end >= new Date()
+            const canCancel = upcoming && ['EN_ATTENTE', 'CONFIRMEE'].includes(reservation.statut)
+            const terrain = reservation.terrain
 
             return (
-              <article className="grid gap-4 bg-white/[0.06] px-3 py-5 sm:px-5 lg:grid-cols-[1fr_auto]" key={reservation.id}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase text-[#88927f]">Terrain</p>
-                    <h2 className="mt-1 font-heading text-lg font-semibold">{reservation.terrain?.nom || 'Terrain'}</h2>
-                    <p className="mt-1 text-xs text-[#a3ad9f]">{reservation.terrain?.ville || 'Dakar'}</p>
+              <li className="anim-fade-up rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5" key={reservation.id} style={{ "--i": index }}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link className="font-heading text-lg font-semibold text-[#f3f5ef] hover:text-[#b6f23a]" to={`/client/terrains/${terrain?.id}`}>
+                      {terrain?.nom || 'Terrain'}
+                    </Link>
+                    <p className="text-xs text-[#88927f]">{[terrain?.quartier, terrain?.commune?.nom, terrain?.ville].filter(Boolean).join(' · ')}</p>
+                    <p className="mt-2 text-sm capitalize text-[#cfd6c9]">
+                      {dayFormat.format(start)} · {timeFormat.format(start)} – {timeFormat.format(end)}
+                    </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div><span className="block text-[#88927f]">Début</span><strong className="mt-1 block">{formatDate(reservation.date_debut)}</strong></div>
-                    <div><span className="block text-[#88927f]">Fin</span><strong className="mt-1 block">{formatDate(reservation.date_fin)}</strong></div>
-                    <div><span className="block text-[#88927f]">Réservation</span><strong className="mt-1 block">{reservation.statut}</strong></div>
-                    <div><span className="block text-[#88927f]">Montant total</span><strong className="mt-1 block">{Number(reservation.montant_total).toLocaleString('fr-FR')} FCFA</strong></div>
+                  <div className="flex w-full items-center justify-between gap-2 sm:block sm:w-auto sm:text-right">
+                    <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${status.style}`}>{status.label}</span>
+                    <p className="mt-1 font-heading text-base font-semibold text-[#b6f23a]">{Number(reservation.montant_total).toLocaleString('fr-FR')} FCFA</p>
                   </div>
-                  {payments.length > 0 && (
-                    <div className="sm:col-span-2">
-                      <p className="text-[10px] font-bold uppercase text-[#88927f]">Paiements</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {payments.map((payment) => (
-                          <span className="rounded-full bg-white/10 px-2.5 py-1.5 text-[11px] text-[#cfd6c9]" key={payment.id}>
-                            {payment.methode} · {payment.statut} · {Number(payment.montant).toLocaleString('fr-FR')} FCFA
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex flex-col justify-center gap-3 lg:w-64">
-                  {canPay && (
-                    <form className="grid gap-2" onSubmit={(event) => submitPayment(event, reservation)}>
-                      <label className="grid gap-1 text-[10px] font-bold text-[#cfd6c9]">
-                        Méthode de paiement
-                        <select className="h-9 rounded-xl border border-white/10 bg-white/[0.06] px-2 text-xs font-normal" onChange={(event) => updatePaymentForm(reservation.id, 'method', event.target.value)} value={form.method}>
-                          {methods.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                        </select>
-                      </label>
-                      {form.method !== 'ESPECES' && (
-                        <input
-                          className="h-9 rounded-xl border border-white/10 bg-white/[0.06] px-2 text-xs"
-                          onChange={(event) => updatePaymentForm(reservation.id, 'reference', event.target.value)}
-                          placeholder="Référence de transaction"
-                          required
-                          value={form.reference}
-                        />
-                      )}
-                      <button className="rounded-full bg-[#b6f23a] px-3 py-2 text-xs font-bold text-[#0b0f0c] disabled:opacity-60" disabled={busyReservationId === reservation.id} type="submit">
-                        {busyReservationId === reservation.id ? 'Envoi…' : 'Enregistrer un paiement'}
+                {upcoming && status.help && (
+                  <p className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.04] px-3 py-2 text-xs text-[#cfd6c9]">
+                    <span aria-hidden="true" className={`mt-1 size-1.5 shrink-0 rounded-full ${reservation.statut === 'CONFIRMEE' ? 'bg-[#25d366]' : 'bg-[#ffb59f]'}`} />
+                    <span>
+                      {status.help}
+                      {reservation.statut === 'CONFIRMEE' && reservation.telephone_whatsapp && ` (numéro indiqué : +${reservation.telephone_whatsapp})`}
+                    </span>
+                  </p>
+                )}
+
+                {reservation.statut === 'REFUSEE' && (
+                  <div className="mt-3 rounded-xl border border-[#ff6b4a]/25 bg-[#ff6b4a]/[0.07] px-3 py-2 text-xs">
+                    <p className="font-semibold text-[#ff9b84]">Motif du refus</p>
+                    <p className="mt-0.5 text-[#cfd6c9] [overflow-wrap:anywhere]">
+                      {reservation.motif_refus || 'Le gestionnaire n’a pas précisé de motif.'}
+                    </p>
+                  </div>
+                )}
+
+                {canCancel && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {askingCancelId === reservation.id ? (
+                      <>
+                        <span className="text-xs text-[#cfd6c9]">Annuler cette réservation ?</span>
+                        <button className="rounded-full bg-[#ff6b4a] px-3 py-1.5 text-[11px] font-bold text-white disabled:opacity-60" disabled={busyId === reservation.id} onClick={() => cancel(reservation)} type="button">
+                          {busyId === reservation.id ? '…' : 'Oui, annuler'}
+                        </button>
+                        <button className="rounded-full px-3 py-1.5 text-[11px] font-semibold text-[#cfd6c9] hover:bg-white/10" onClick={() => setAskingCancelId(null)} type="button">Non</button>
+                      </>
+                    ) : (
+                      <button className="rounded-full border border-[#ff6b4a]/40 px-3 py-1.5 text-[11px] font-semibold text-[#ff9b84] hover:bg-[#ff6b4a]/10" onClick={() => setAskingCancelId(reservation.id)} type="button">
+                        Annuler la réservation
                       </button>
-                    </form>
-                  )}
-                  {canCancel && (
-                    <button className="rounded border border-[#ff6b4a]/40 px-3 py-2 text-xs font-bold text-[#ff9b84] hover:bg-[#fff5f0] disabled:opacity-60" disabled={busyReservationId === reservation.id} onClick={() => handleCancel(reservation)} type="button">
-                      Annuler la réservation
-                    </button>
-                  )}
-                </div>
-              </article>
+                    )}
+                  </div>
+                )}
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
-    </section>
+    </div>
   )
 }

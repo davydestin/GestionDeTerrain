@@ -8,7 +8,12 @@ use App\Http\Requests\SearchTerrainRequest;
 use App\Http\Requests\StoreTerrainRequest;
 use App\Http\Requests\UpdateTerrainRequest;
 use App\Http\Resources\TerrainResource;
+use App\Models\Reservation;
 use App\Models\Terrain;
+use App\Models\User;
+use App\Services\AuditLogger;
+use App\Support\PublicViewer;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Request;
@@ -16,12 +21,15 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class TerrainController extends Controller
 {
     public function index(SearchTerrainRequest $request): AnonymousResourceCollection
     {
-        $terrains = $this->publicTerrainQuery($request->validated())
+        $terrains = $this->publicTerrainQuery($request->validated(), PublicViewer::from($request))
+            // Photos incluses : la liste publique affiche la photo principale de chaque terrain.
+            ->with(['images' => fn ($query) => $query->orderByDesc('est_principale')->orderBy('id')])
             ->orderBy('nom')
             ->paginate(15);
 
@@ -42,7 +50,7 @@ class TerrainController extends Controller
             ]);
         }
 
-        $terrains = $this->publicTerrainQuery($request->validated())
+        $terrains = $this->publicTerrainQuery($request->validated(), PublicViewer::from($request))
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->whereBetween('latitude', [$south, $north])
@@ -61,7 +69,7 @@ class TerrainController extends Controller
         $longitude = (float) $request->validated('longitude');
         $radius = (float) $request->validated('radius', 5000);
         $limit = (int) $request->validated('limit', 50);
-        $query = $this->publicTerrainQuery($request->validated())
+        $query = $this->publicTerrainQuery($request->validated(), PublicViewer::from($request))
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->with(['images' => fn ($imageQuery) => $imageQuery->orderByDesc('est_principale')->orderBy('id')]);
@@ -106,26 +114,98 @@ class TerrainController extends Controller
         return TerrainResource::collection($terrains);
     }
 
-    public function show(Terrain $terrain): TerrainResource
+    /**
+     * Page d'accueil (« Terrains à la une ») : la seule vue où un gestionnaire voit aussi
+     * les terrains des autres. Chaque terrain indique s'il appartient au gestionnaire connecté.
+     */
+    public function featured(Request $request): AnonymousResourceCollection
+    {
+        $viewer = PublicViewer::from($request);
+
+        $terrains = $this->publicTerrainQuery()
+            ->with(['images' => fn ($query) => $query->orderByDesc('est_principale')->orderBy('id')])
+            ->withCount('images')
+            ->orderByDesc('images_count')
+            ->latest()
+            ->limit(6)
+            ->get()
+            ->each(fn (Terrain $terrain) => $terrain->setAttribute(
+                'est_a_moi',
+                $viewer?->role === User::ROLE_GESTIONNAIRE && (int) $terrain->gestionnaire_id === (int) $viewer->id,
+            ));
+
+        return TerrainResource::collection($terrains);
+    }
+
+    public function show(Request $request, Terrain $terrain): TerrainResource
     {
         abort_unless($terrain->ville === 'Dakar' && $terrain->statut === 'ACTIF', 404);
+        // Terrain d'un autre gestionnaire : invisible pour un gestionnaire (même réponse que s'il n'existait pas).
+        abort_unless($terrain->estVisiblePour(PublicViewer::from($request)), 404);
 
         return new TerrainResource($terrain->load([
             'commune:id,nom',
             'images' => fn ($query) => $query->orderByDesc('est_principale')->orderBy('id'),
+            'indisponibiliteEnCours',
         ]));
     }
 
+    /**
+     * Terrains du gestionnaire connecté, avec ce qu'il faut pour la page « Mes terrains » :
+     * photo principale, nombre de réservations (total et à venir), horaires actifs,
+     * filtres (recherche, statut) et compteurs globaux.
+     */
     public function managedIndex(Request $request): AnonymousResourceCollection
     {
-        $terrains = $request->user()
-            ->terrains()
-            ->with('commune:id,nom')
-            ->withCount('reservations')
-            ->orderBy('nom')
-            ->paginate(15);
+        $filters = $request->validate([
+            'search' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'statut' => ['sometimes', 'nullable', Rule::in(['ACTIF', 'INACTIF'])],
+            'page' => ['sometimes', 'integer', 'min:1'],
+        ]);
 
-        return TerrainResource::collection($terrains);
+        $owned = fn () => $request->user()->terrains();
+
+        $terrains = $owned()
+            ->withManagementDetails()
+            ->when($filters['search'] ?? null, function (Builder $query, string $search): void {
+                $like = '%'.$search.'%';
+                $query->where(fn (Builder $nested) => $nested
+                    ->where('nom', 'like', $like)
+                    ->orWhere('quartier', 'like', $like)
+                    ->orWhere('adresse', 'like', $like)
+                    ->orWhere('type', 'like', $like));
+            })
+            ->when($filters['statut'] ?? null, fn (Builder $query, string $statut) => $query->where('statut', $statut))
+            ->orderBy('nom')
+            ->paginate(12)
+            ->withQueryString();
+
+        return TerrainResource::collection($terrains)->additional([
+            'stats' => [
+                'total' => $owned()->count(),
+                'actifs' => $owned()->where('statut', 'ACTIF')->count(),
+                'inactifs' => $owned()->where('statut', 'INACTIF')->count(),
+                'sans_horaires' => $owned()->whereDoesntHave('horaires', fn ($query) => $query->where('actif', true))->count(),
+                'reservations_en_attente' => Reservation::query()
+                    ->whereIn('terrain_id', $owned()->pluck('id'))
+                    ->where('statut', 'EN_ATTENTE')
+                    ->count(),
+            ],
+        ]);
+    }
+
+    /** Fiche de gestion d'un terrain (propriétaire uniquement), quel que soit son statut. */
+    public function managedShow(Request $request, Terrain $terrain): TerrainResource
+    {
+        Gate::authorize('update', $terrain);
+
+        return new TerrainResource(
+            Terrain::query()
+                ->whereKey($terrain->getKey())
+                ->withManagementDetails()
+                ->with(['horaires' => fn ($query) => $query->orderBy('jour_semaine')])
+                ->firstOrFail()
+        );
     }
 
     public function store(StoreTerrainRequest $request): JsonResponse
@@ -133,6 +213,11 @@ class TerrainController extends Controller
         $terrain = $request->user()->terrains()->create(
             $request->validated() + ['ville' => 'Dakar']
         );
+
+        AuditLogger::log('terrain.cree', 'Création du terrain « '.$terrain->nom.' »', $terrain, [
+            'tarif_horaire' => $terrain->tarif_horaire,
+            'statut' => $terrain->statut,
+        ]);
 
         return response()->json([
             'terrain' => (new TerrainResource($terrain->load('commune:id,nom')))->resolve($request),
@@ -143,6 +228,10 @@ class TerrainController extends Controller
     {
         $terrain->update($request->validated());
 
+        if ($changes = AuditLogger::changes($terrain)) {
+            AuditLogger::log('terrain.modifie', 'Modification du terrain « '.$terrain->nom.' »', $terrain, ['changements' => $changes]);
+        }
+
         return response()->json([
             'terrain' => (new TerrainResource($terrain->refresh()->load('commune:id,nom')))->resolve($request),
         ]);
@@ -152,23 +241,47 @@ class TerrainController extends Controller
     {
         Gate::authorize('delete', $terrain);
 
-        $terrain->delete();
+        DB::transaction(function () use ($terrain): void {
+            $lockedTerrain = Terrain::query()->lockForUpdate()->findOrFail($terrain->getKey());
+
+            $hasUpcomingReservations = $lockedTerrain->reservations()
+                ->whereIn('statut', ['EN_ATTENTE', 'CONFIRMEE'])
+                ->where('date_fin', '>', now())
+                ->exists();
+
+            if ($hasUpcomingReservations) {
+                throw new HttpException(
+                    409,
+                    'Ce terrain a des réservations à venir : traitez-les ou passez le terrain en INACTIF.'
+                );
+            }
+
+            $lockedTerrain->delete();
+        });
+
+        AuditLogger::log('terrain.supprime', 'Suppression du terrain « '.$terrain->nom.' »', $terrain);
 
         return response()->json(status: 204);
     }
 
-    private function publicTerrainQuery(array $filters = []): Builder
+    /**
+     * Terrains publics (Dakar, actifs). `$viewer` applique la règle de visibilité :
+     * un gestionnaire connecté n'y voit que ses propres terrains (voir Terrain::scopeVisiblesPour).
+     */
+    private function publicTerrainQuery(array $filters = [], ?User $viewer = null): Builder
     {
         return Terrain::query()
             ->where('ville', 'Dakar')
             ->where('statut', 'ACTIF')
+            ->visiblesPour($viewer)
             ->when(isset($filters['commune_id']), fn (Builder $query) => $query->where('commune_id', $filters['commune_id']))
             ->when(isset($filters['commune']), fn (Builder $query) => $query->whereHas('commune', fn (Builder $communeQuery) => $communeQuery->where('nom', $filters['commune'])))
             ->when(isset($filters['quartier']), fn (Builder $query) => $query->where('quartier', 'like', '%'.$filters['quartier'].'%'))
-            ->when(isset($filters['type']), fn (Builder $query) => $query->where('type', $filters['type']))
+            // « type » = revêtement du terrain de foot (gazon synthétique, gazon naturel…) : recherche partielle.
+            ->when(isset($filters['type']), fn (Builder $query) => $query->where('type', 'like', '%'.$filters['type'].'%'))
             ->when(isset($filters['min_price']), fn (Builder $query) => $query->where('tarif_horaire', '>=', $filters['min_price']))
             ->when(isset($filters['max_price']), fn (Builder $query) => $query->where('tarif_horaire', '<=', $filters['max_price']))
-            ->with('commune:id,nom');
+            ->with(['commune:id,nom', 'indisponibiliteEnCours']);
     }
 
     private function haversineDistance(float $lat1, float $lon1, float $lat2, float $lon2): float

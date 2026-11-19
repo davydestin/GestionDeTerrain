@@ -16,7 +16,7 @@ class TerrainPolicy
     {
         return $user->statut
             && $user->role === User::ROLE_GESTIONNAIRE
-            && $terrain->gestionnaire_id === $user->id;
+            && (int) $terrain->gestionnaire_id === (int) $user->id;
     }
 
     public function delete(User $user, Terrain $terrain): bool

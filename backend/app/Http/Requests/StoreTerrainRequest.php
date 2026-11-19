@@ -23,8 +23,8 @@ class StoreTerrainRequest extends FormRequest
             'adresse' => ['required', 'string', 'max:255'],
             'ville' => ['sometimes', 'string', Rule::in(['Dakar'])],
             'quartier' => ['required', 'string', 'max:100'],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
             'type' => ['required', 'string', 'max:100'],
             'capacite' => ['required', 'integer', 'min:1'],
             'tarif_horaire' => ['required', 'numeric', 'min:0'],
@@ -38,16 +38,8 @@ class StoreTerrainRequest extends FormRequest
                 return;
             }
 
-            $latitude = $this->input('latitude');
-            $longitude = $this->input('longitude');
-
-            if (($latitude === null) !== ($longitude === null)) {
-                $validator->errors()->add('latitude', 'La latitude et la longitude doivent être renseignées ensemble.');
-
-                return;
-            }
-
-            if ($latitude !== null && ! \App\Support\DakarBounds::contains((float) $latitude, (float) $longitude)) {
+            // latitude et longitude sont obligatoires (cf. rules), il reste à vérifier le périmètre.
+            if (! \App\Support\DakarBounds::contains((float) $this->input('latitude'), (float) $this->input('longitude'))) {
                 $validator->errors()->add('latitude', 'Les coordonnées sont en dehors du périmètre configuré de Dakar.');
             }
         }];

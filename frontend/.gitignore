@@ -1,0 +1,7 @@
+node_modules/
+dist/
+
+# Configuration locale (le modèle à copier est .env.example)
+.env
+.env.local
+.env.*.local

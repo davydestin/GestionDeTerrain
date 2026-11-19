@@ -16,7 +16,7 @@ class UpdateIndisponibiliteRequest extends FormRequest
 
         return $terrain instanceof Terrain
             && $indisponibilite instanceof Indisponibilite
-            && $indisponibilite->terrain_id === $terrain->id
+            && (int) $indisponibilite->terrain_id === (int) $terrain->id
             && ($this->user()?->can('update', $terrain) ?? false);
     }
 

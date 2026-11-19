@@ -6,6 +6,7 @@ use App\Http\Requests\StoreTerrainImagesRequest;
 use App\Http\Resources\TerrainImageResource;
 use App\Models\Terrain;
 use App\Models\TerrainImage;
+use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Request;
@@ -57,6 +58,15 @@ class TerrainImageController extends Controller
             throw $exception;
         }
 
+        $count = $images->count();
+        AuditLogger::log('terrain.photo_ajoutee', sprintf(
+            '%d photo%s ajoutée%s au terrain « %s »',
+            $count,
+            $count > 1 ? 's' : '',
+            $count > 1 ? 's' : '',
+            $terrain->nom,
+        ), $terrain, ['photos' => $images->pluck('id')->all()]);
+
         return response()->json([
             'data' => $images->map(
                 fn (TerrainImage $image) => (new TerrainImageResource($image))->resolve($request)
@@ -75,6 +85,10 @@ class TerrainImageController extends Controller
             $lockedTerrain->images()->update(['est_principale' => false]);
             $selectedImage->update(['est_principale' => true]);
         });
+
+        AuditLogger::log('terrain.photo_principale', 'Nouvelle photo principale pour le terrain « '.$terrain->nom.' »', $terrain, [
+            'photo' => $image->getKey(),
+        ]);
 
         return new TerrainImageResource($image->refresh());
     }
@@ -104,14 +118,21 @@ class TerrainImageController extends Controller
             Storage::disk('public')->delete($storedPath);
         }
 
+        AuditLogger::log('terrain.photo_supprimee', 'Photo supprimée du terrain « '.$terrain->nom.' »', $terrain, [
+            'photo' => $image->getKey(),
+        ]);
+
         return response()->json(status: 204);
     }
 
-    public function show(TerrainImage $terrainImage): StreamedResponse
+    public function show(Request $request, TerrainImage $terrainImage): StreamedResponse
     {
         $terrain = $terrainImage->terrain;
+        $isPublic = $terrain && $terrain->ville === 'Dakar' && $terrain->statut === 'ACTIF';
+        // Route publique : on tente quand même la session pour laisser le propriétaire voir ses terrains inactifs.
+        $isOwner = $terrain && ($request->user('sanctum')?->can('update', $terrain) ?? false);
 
-        abort_unless($terrain && $terrain->ville === 'Dakar' && $terrain->statut === 'ACTIF', 404);
+        abort_unless($isPublic || $isOwner, 404);
         abort_unless(Storage::disk('public')->exists($terrainImage->chemin_image), 404);
 
         return Storage::disk('public')->response($terrainImage->chemin_image);

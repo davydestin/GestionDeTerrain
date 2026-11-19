@@ -10,6 +10,8 @@ use App\Http\Requests\UpdateIndisponibiliteRequest;
 use App\Models\Horaire;
 use App\Models\Indisponibilite;
 use App\Models\Terrain;
+use App\Services\AuditLogger;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -17,6 +19,8 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class TerrainPlanningController extends Controller
 {
+    public const JOURS = [1 => 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+
     public function horaires(Terrain $terrain): JsonResponse
     {
         Gate::authorize('update', $terrain);
@@ -35,6 +39,14 @@ class TerrainPlanningController extends Controller
             return $lockedTerrain->horaires()->create($validated + ['actif' => true]);
         });
 
+        AuditLogger::log('terrain.horaire_ajoute', sprintf(
+            'Horaire du %s ajouté au terrain « %s » : %s – %s',
+            self::JOURS[$horaire->jour_semaine] ?? $horaire->jour_semaine,
+            $terrain->nom,
+            substr((string) $horaire->heure_ouverture, 0, 5),
+            substr((string) $horaire->heure_fermeture, 0, 5),
+        ), $terrain, ['horaire' => $horaire->id]);
+
         return response()->json(['horaire' => $horaire], 201);
     }
 
@@ -46,8 +58,17 @@ class TerrainPlanningController extends Controller
             $lockedHoraire = $lockedTerrain->horaires()->findOrFail($horaire->id);
             $lockedHoraire->update($validated);
 
-            return $lockedHoraire->fresh();
+            return [$lockedHoraire->fresh(), AuditLogger::changes($lockedHoraire)];
         });
+        [$horaire, $changes] = $horaire;
+
+        if ($changes !== []) {
+            AuditLogger::log('terrain.horaire_modifie', sprintf(
+                'Horaire du %s modifié pour le terrain « %s »',
+                self::JOURS[$horaire->jour_semaine] ?? $horaire->jour_semaine,
+                $terrain->nom,
+            ), $terrain, ['horaire' => $horaire->id, 'changements' => $changes]);
+        }
 
         return response()->json(['horaire' => $horaire]);
     }
@@ -59,6 +80,12 @@ class TerrainPlanningController extends Controller
             $lockedTerrain = Terrain::query()->lockForUpdate()->findOrFail($terrain->getKey());
             $lockedTerrain->horaires()->findOrFail($horaire->id)->delete();
         });
+
+        AuditLogger::log('terrain.horaire_supprime', sprintf(
+            'Horaire du %s supprimé du terrain « %s »',
+            self::JOURS[$horaire->jour_semaine] ?? $horaire->jour_semaine,
+            $terrain->nom,
+        ), $terrain, ['horaire' => $horaire->id]);
 
         return response()->json(status: 204);
     }
@@ -86,6 +113,13 @@ class TerrainPlanningController extends Controller
             return $lockedTerrain->indisponibilites()->create($validated);
         });
 
+        AuditLogger::log('terrain.indisponibilite_ajoutee', sprintf(
+            'Fermeture du terrain « %s » du %s au %s',
+            $terrain->nom,
+            Carbon::parse($indisponibilite->date_debut)->format('d/m/Y H:i'),
+            Carbon::parse($indisponibilite->date_fin)->format('d/m/Y H:i'),
+        ), $terrain, array_filter(['indisponibilite' => $indisponibilite->id, 'motif' => $indisponibilite->motif]));
+
         return response()->json(['indisponibilite' => $indisponibilite], 201);
     }
 
@@ -104,8 +138,16 @@ class TerrainPlanningController extends Controller
 
             $indisponibilite->update($validated);
 
-            return $indisponibilite->fresh();
+            return [$indisponibilite->fresh(), AuditLogger::changes($indisponibilite)];
         });
+        [$indisponibilite, $changes] = $indisponibilite;
+
+        if ($changes !== []) {
+            AuditLogger::log('terrain.indisponibilite_modifiee', 'Fermeture modifiée pour le terrain « '.$terrain->nom.' »', $terrain, [
+                'indisponibilite' => $indisponibilite->id,
+                'changements' => $changes,
+            ]);
+        }
 
         return response()->json(['indisponibilite' => $indisponibilite]);
     }
@@ -113,7 +155,15 @@ class TerrainPlanningController extends Controller
     public function destroyIndisponibilite(Terrain $terrain, Indisponibilite $indisponibilite): JsonResponse
     {
         Gate::authorize('update', $terrain);
-        $terrain->indisponibilites()->findOrFail($indisponibilite->id)->delete();
+        $indisponibilite = $terrain->indisponibilites()->findOrFail($indisponibilite->id);
+        $indisponibilite->delete();
+
+        AuditLogger::log('terrain.indisponibilite_supprimee', sprintf(
+            'Fermeture du terrain « %s » du %s au %s supprimée',
+            $terrain->nom,
+            Carbon::parse($indisponibilite->date_debut)->format('d/m/Y H:i'),
+            Carbon::parse($indisponibilite->date_fin)->format('d/m/Y H:i'),
+        ), $terrain, ['indisponibilite' => $indisponibilite->id]);
 
         return response()->json(status: 204);
     }

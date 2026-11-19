@@ -13,6 +13,7 @@ class NotificationUtilisateur extends Model
 
     protected $fillable = [
         'utilisateur_id',
+        'reservation_id',
         'titre',
         'message',
         'lu',
@@ -30,5 +31,10 @@ class NotificationUtilisateur extends Model
     public function utilisateur(): BelongsTo
     {
         return $this->belongsTo(User::class, 'utilisateur_id');
+    }
+
+    public function reservation(): BelongsTo
+    {
+        return $this->belongsTo(Reservation::class);
     }
 }

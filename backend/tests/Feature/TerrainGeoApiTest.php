@@ -6,6 +6,8 @@ use App\Models\Commune;
 use App\Models\Terrain;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class TerrainGeoApiTest extends TestCase
@@ -35,7 +37,68 @@ class TerrainGeoApiTest extends TestCase
         $this->postJson('/api/gestionnaire/terrains', array_merge($payload, [
             'longitude' => null,
         ]))->assertUnprocessable()
-            ->assertJsonValidationErrors('latitude');
+            ->assertJsonValidationErrors('longitude');
+    }
+
+    public function test_manager_cannot_create_terrain_without_a_selected_position(): void
+    {
+        $manager = User::factory()->create(['role' => User::ROLE_GESTIONNAIRE]);
+        $commune = Commune::create(['nom' => 'Dakar-Plateau']);
+        $payload = $this->terrainPayload($commune, []);
+        unset($payload['latitude'], $payload['longitude']);
+
+        $this->actingAs($manager, 'web')
+            ->postJson('/api/gestionnaire/terrains', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['latitude', 'longitude']);
+    }
+
+    public function test_manager_can_search_a_dakar_address_through_nominatim(): void
+    {
+        Cache::forget('nominatim:'.sha1('12 rue centrale, médina, dakar'));
+        Http::fake([
+            'https://nominatim.openstreetmap.org/*' => Http::response([[
+                'lat' => '14.6700000',
+                'lon' => '-17.4300000',
+                'display_name' => '12 rue Centrale, Médina, Dakar, Sénégal',
+                'address' => ['city' => 'Dakar', 'suburb' => 'Médina'],
+            ]], 200),
+        ]);
+
+        $manager = User::factory()->create(['role' => User::ROLE_GESTIONNAIRE]);
+
+        $this->actingAs($manager, 'web')
+            ->postJson('/api/gestionnaire/geocode', [
+                'adresse' => '12 rue centrale',
+                'quartier' => 'Médina',
+                'ville' => 'Dakar',
+            ])
+            ->assertOk()
+            ->assertJsonPath('results.0.latitude', 14.67)
+            ->assertJsonPath('results.0.longitude', -17.43);
+    }
+
+    public function test_geocoding_rejects_results_outside_dakar(): void
+    {
+        Cache::forget('nominatim:'.sha1('1 rue test, dakar-plateau, dakar'));
+        Http::fake([
+            'https://nominatim.openstreetmap.org/*' => Http::response([[
+                'lat' => '14.0000000',
+                'lon' => '-17.4300000',
+                'display_name' => 'Résultat hors zone',
+            ]], 200),
+        ]);
+
+        $manager = User::factory()->create(['role' => User::ROLE_GESTIONNAIRE]);
+
+        $this->actingAs($manager, 'web')
+            ->postJson('/api/gestionnaire/geocode', [
+                'adresse' => '1 rue test',
+                'quartier' => 'Dakar-Plateau',
+                'ville' => 'Dakar',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Adresse introuvable dans le périmètre de Dakar.');
     }
 
     public function test_search_filters_by_commune_neighborhood_type_and_price(): void

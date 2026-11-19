@@ -1,4 +1,4 @@
-import { apiRequest, initializeCsrf, updateProfile as updateProfileRequest } from './api.js'
+import { apiRequest, initializeCsrf, readJson, updateProfile as updateProfileRequest } from './api.js'
 
 export class AuthError extends Error {
 	constructor(message, status, errors = {}) {
@@ -10,18 +10,11 @@ export class AuthError extends Error {
 }
 
 async function readResponse(response) {
-	const payload = await response.json().catch(() => ({}))
-
-	if (!response.ok) {
-		const validationMessage = Object.values(payload.errors || {}).flat()[0]
-		throw new AuthError(
-			validationMessage || payload.message || 'Une erreur est survenue.',
-			response.status,
-			payload.errors || {},
-		)
+	try {
+		return await readJson(response)
+	} catch (error) {
+		throw new AuthError(error.message, error.status, error.errors)
 	}
-
-	return payload
 }
 
 export async function getCurrentUser() {
@@ -50,6 +43,19 @@ export async function signUp(details) {
 	const response = await apiRequest('/api/register', {
 		method: 'POST',
 		body: JSON.stringify(details),
+	})
+
+	return (await readResponse(response)).user
+}
+
+// Option pour les clients : `accessToken` est le jeton d'accès renvoyé par le bouton « Continuer avec Google ».
+// Le compte client est créé automatiquement à la première connexion.
+export async function signInWithGoogle(accessToken) {
+	await initializeCsrf()
+
+	const response = await apiRequest('/api/auth/google', {
+		method: 'POST',
+		body: JSON.stringify({ access_token: accessToken }),
 	})
 
 	return (await readResponse(response)).user

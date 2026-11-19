@@ -78,8 +78,15 @@ class TerrainApiTest extends TestCase
             'montant_total' => 15000,
         ]);
 
+        // Une réservation active à venir bloque la suppression.
         $this->actingAs($owner, 'web')
             ->deleteJson('/api/gestionnaire/terrains/'.$terrain->id)
+            ->assertConflict();
+        $this->assertNotSoftDeleted('terrains', ['id' => $terrain->id]);
+
+        $reservation->update(['statut' => 'ANNULEE']);
+
+        $this->deleteJson('/api/gestionnaire/terrains/'.$terrain->id)
             ->assertNoContent();
 
         $this->assertSoftDeleted('terrains', ['id' => $terrain->id]);
@@ -135,6 +142,8 @@ class TerrainApiTest extends TestCase
             'capacite' => 22,
             'tarif_horaire' => 15000,
             'statut' => 'ACTIF',
+            'latitude' => 14.6700000,
+            'longitude' => -17.4300000,
         ], $attributes));
     }
 }

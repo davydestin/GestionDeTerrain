@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1622" viewBox="0 0 1560 1622" font-family="Helvetica, Arial, sans-serif">
+<defs><marker id="block" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto"><path d="M1,1 L11,6 L1,11 Z" fill="#222"/></marker><marker id="open" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="11" markerHeight="11" orient="auto"><path d="M1,1 L11,6 L1,11" fill="none" stroke="#222" stroke-width="1.4"/></marker></defs>
+<rect width="1560" height="1622" fill="#fff"/>
+<text x="40" y="52" font-size="24" font-weight="bold" fill="#111">Diagramme de séquence — Réservation</text>
+<rect x="40" y="814" width="1480" height="710" fill="none" stroke="#555" stroke-width="1.3"/>
+<path d="M40,814 h50 v16 l-8,10 h-42 Z" fill="#f2f2f2" stroke="#555" stroke-width="1.3"/><text x="62" y="832" font-size="14" font-weight="bold" text-anchor="middle">alt</text>
+<line x1="40" y1="1394" x2="1520" y2="1394" stroke="#555" stroke-width="1.3" stroke-dasharray="7 5"/>
+<g stroke="#111" stroke-width="1.6" fill="none"><circle cx="130" cy="102" r="10" fill="#fff"/><line x1="130" y1="112" x2="130" y2="134"/><line x1="115" y1="120" x2="145" y2="120"/><line x1="130" y1="134" x2="115" y2="152"/><line x1="130" y1="134" x2="145" y2="152"/></g><text x="130" y="172" font-size="15" font-weight="bold" text-anchor="middle">Client</text>
+<line x1="130" y1="175" x2="130" y2="1592" stroke="#777" stroke-width="1.3" stroke-dasharray="7 5"/>
+<rect x="345" y="100" width="210" height="52" fill="#e6f4d0" stroke="#82b366" stroke-width="1.4"/><text x="450" y="131" font-size="15" font-weight="bold" text-anchor="middle">Interface (React.js)</text>
+<line x1="450" y1="152" x2="450" y2="1592" stroke="#777" stroke-width="1.3" stroke-dasharray="7 5"/>
+<rect x="695" y="100" width="210" height="52" fill="#e6f4d0" stroke="#82b366" stroke-width="1.4"/><text x="800" y="131" font-size="15" font-weight="bold" text-anchor="middle">Serveur (Laravel)</text>
+<line x1="800" y1="152" x2="800" y2="1592" stroke="#777" stroke-width="1.3" stroke-dasharray="7 5"/>
+<rect x="1015" y="100" width="210" height="52" fill="#e6f4d0" stroke="#82b366" stroke-width="1.4"/><text x="1120" y="131" font-size="15" font-weight="bold" text-anchor="middle">Base de données (MySQL)</text>
+<line x1="1120" y1="152" x2="1120" y2="1592" stroke="#777" stroke-width="1.3" stroke-dasharray="7 5"/>
+<g stroke="#111" stroke-width="1.6" fill="none"><circle cx="1420" cy="102" r="10" fill="#fff"/><line x1="1420" y1="112" x2="1420" y2="134"/><line x1="1405" y1="120" x2="1435" y2="120"/><line x1="1420" y1="134" x2="1405" y2="152"/><line x1="1420" y1="134" x2="1435" y2="152"/></g><text x="1420" y="172" font-size="15" font-weight="bold" text-anchor="middle">Gestionnaire</text>
+<line x1="1420" y1="175" x2="1420" y2="1592" stroke="#777" stroke-width="1.3" stroke-dasharray="7 5"/>
+<text x="102" y="832" font-size="13.5" text-anchor="start" font-style="italic" fill="#111">[créneau disponible]</text>
+<text x="52" y="1412" font-size="13.5" text-anchor="start" font-style="italic" fill="#111">[créneau indisponible]</text>
+<rect x="123.4" y="188" width="326.2" height="18" fill="#ffffff"/><text x="286.5" y="202" font-size="14" text-anchor="middle" fill="#111">consulter la liste des terrains disponibles</text>
+<rect x="510" y="242" width="230" height="18" fill="#ffffff"/><text x="625" y="256" font-size="14" text-anchor="middle" fill="#111">demander la liste des terrains</text>
+<rect x="893.1" y="296" width="133.8" height="18" fill="#ffffff"/><text x="960" y="310" font-size="14" text-anchor="middle" fill="#111">lire les terrains</text>
+<rect x="926.4" y="350" width="67.2" height="18" fill="#ffffff"/><text x="960" y="364" font-size="14" text-anchor="middle" fill="#111">terrains</text>
+<rect x="554.4" y="404" width="141.20000000000002" height="18" fill="#ffffff"/><text x="625" y="418" font-size="14" text-anchor="middle" fill="#111">liste des terrains</text>
+<rect x="204.8" y="458" width="163.4" height="18" fill="#ffffff"/><text x="286.5" y="472" font-size="14" text-anchor="middle" fill="#111">afficher les terrains</text>
+<rect x="197.39999999999998" y="528" width="178.20000000000002" height="18" fill="#ffffff"/><text x="286.5" y="542" font-size="14" text-anchor="middle" fill="#111">sélectionner un terrain</text>
+<rect x="141.9" y="582" width="289.2" height="18" fill="#ffffff"/><text x="286.5" y="596" font-size="14" text-anchor="middle" fill="#111">choisir une date et un créneau horaire</text>
+<rect x="454.5" y="636" width="341" height="18" fill="#ffffff"/><text x="625" y="650" font-size="14" text-anchor="middle" fill="#111">transmettre le terrain, la date et le créneau</text>
+<rect x="822.8" y="690" width="274.40000000000003" height="18" fill="#ffffff"/><text x="960" y="704" font-size="14" text-anchor="middle" fill="#111">vérifier la disponibilité du créneau</text>
+<rect x="867.2" y="744" width="185.60000000000002" height="18" fill="#ffffff"/><text x="960" y="758" font-size="14" text-anchor="middle" fill="#111">disponibilité du créneau</text>
+<rect x="554.4" y="838" width="141.20000000000002" height="18" fill="#ffffff"/><text x="625" y="852" font-size="14" text-anchor="middle" fill="#111">créneau disponible</text>
+<rect x="164.1" y="892" width="244.8" height="18" fill="#ffffff"/><text x="286.5" y="906" font-size="14" text-anchor="middle" fill="#111">proposer de confirmer la demande</text>
+<rect x="208.5" y="946" width="156" height="18" fill="#ffffff"/><text x="286.5" y="960" font-size="14" text-anchor="middle" fill="#111">confirmer la demande</text>
+<rect x="498.9" y="1000" width="252.20000000000002" height="18" fill="#ffffff"/><text x="625" y="1014" font-size="14" text-anchor="middle" fill="#111">envoyer la demande de réservation</text>
+<rect x="837.6" y="1037" width="244.8" height="18" fill="#ffffff"/><text x="960" y="1051" font-size="14" text-anchor="middle" fill="#111">nouvelle vérification du créneau</text>
+<rect x="841.3" y="1054" width="237.4" height="18" fill="#ffffff"/><text x="960" y="1068" font-size="14" text-anchor="middle" fill="#111">(éviter une double réservation)</text>
+<rect x="874.6" y="1108" width="170.8" height="18" fill="#ffffff"/><text x="960" y="1122" font-size="14" text-anchor="middle" fill="#111">créneau toujours libre</text>
+<rect x="859.8" y="1145" width="200.4" height="18" fill="#ffffff"/><text x="960" y="1159" font-size="14" text-anchor="middle" fill="#111">enregistrer la réservation</text>
+<rect x="870.9" y="1162" width="178.20000000000002" height="18" fill="#ffffff"/><text x="960" y="1176" font-size="14" text-anchor="middle" fill="#111">(statut « En attente »)</text>
+<rect x="994.8" y="1216" width="237.4" height="18" fill="#ffffff"/><text x="1113.5" y="1230" font-size="14" text-anchor="middle" fill="#111">informer de la nouvelle demande</text>
+<rect x="502.6" y="1270" width="244.8" height="18" fill="#ffffff"/><text x="625" y="1284" font-size="14" text-anchor="middle" fill="#111">confirmation de l’enregistrement</text>
+<rect x="193.7" y="1324" width="185.60000000000002" height="18" fill="#ffffff"/><text x="286.5" y="1338" font-size="14" text-anchor="middle" fill="#111">afficher la confirmation</text>
+<rect x="547" y="1416" width="156" height="18" fill="#ffffff"/><text x="625" y="1430" font-size="14" text-anchor="middle" fill="#111">créneau indisponible</text>
+<rect x="116" y="1470" width="341" height="18" fill="#ffffff"/><text x="286.5" y="1484" font-size="14" text-anchor="middle" fill="#111">informer le client : choisir un autre créneau</text>
+<rect x="1113" y="304" width="14" height="82" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<rect x="793" y="250" width="14" height="190" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<rect x="443" y="196" width="14" height="298" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<rect x="1113" y="698" width="14" height="82" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<rect x="1113" y="1062" width="14" height="136" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<rect x="793" y="644" width="14" height="808" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<rect x="443" y="536" width="14" height="970" fill="#ffffff" stroke="#333" stroke-width="1.3"/>
+<line x1="130" y1="210" x2="443" y2="210" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="457" y1="264" x2="793" y2="264" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="807" y1="318" x2="1113" y2="318" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="1113" y1="372" x2="807" y2="372" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="793" y1="426" x2="457" y2="426" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="443" y1="480" x2="130" y2="480" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="130" y1="550" x2="443" y2="550" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="130" y1="604" x2="443" y2="604" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="457" y1="658" x2="793" y2="658" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="807" y1="712" x2="1113" y2="712" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="1113" y1="766" x2="807" y2="766" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="793" y1="860" x2="457" y2="860" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="443" y1="914" x2="130" y2="914" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="130" y1="968" x2="443" y2="968" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="457" y1="1022" x2="793" y2="1022" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="807" y1="1076" x2="1113" y2="1076" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="1113" y1="1130" x2="807" y2="1130" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="807" y1="1184" x2="1113" y2="1184" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="807" y1="1238" x2="1420" y2="1238" stroke="#222" stroke-width="1.3" marker-end="url(#block)"/>
+<line x1="793" y1="1292" x2="457" y2="1292" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="443" y1="1346" x2="130" y2="1346" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="793" y1="1438" x2="457" y2="1438" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+<line x1="443" y1="1492" x2="130" y2="1492" stroke="#222" stroke-width="1.3" stroke-dasharray="7 5" marker-end="url(#open)"/>
+</svg>

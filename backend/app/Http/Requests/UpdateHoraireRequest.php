@@ -17,7 +17,7 @@ class UpdateHoraireRequest extends FormRequest
 
         return $terrain instanceof Terrain
             && $horaire instanceof Horaire
-            && $horaire->terrain_id === $terrain->id
+            && (int) $horaire->terrain_id === (int) $terrain->id
             && ($this->user()?->can('update', $terrain) ?? false);
     }
 

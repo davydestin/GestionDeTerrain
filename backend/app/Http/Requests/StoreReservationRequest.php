@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Support\PhoneNumber;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -21,7 +22,13 @@ class StoreReservationRequest extends FormRequest
             'terrain_id' => ['required', 'integer', 'exists:terrains,id'],
             'date_debut' => ['required', 'date', 'after:now'],
             'date_fin' => ['required', 'date', 'after:date_debut'],
-            'commentaire' => ['nullable', 'string'],
+            'commentaire' => ['nullable', 'string', 'max:500'],
+            // Le gestionnaire contacte le client sur ce numéro pour convenir du paiement.
+            'telephone_whatsapp' => ['required', 'string', 'max:25', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (! PhoneNumber::isValid($value)) {
+                    $fail('Numéro WhatsApp invalide : utilisez un numéro sénégalais (ex. 77 123 45 67) ou un numéro avec indicatif (ex. +33 6 12 34 56 78).');
+                }
+            }],
         ];
     }
 

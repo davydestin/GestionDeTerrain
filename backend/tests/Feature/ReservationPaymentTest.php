@@ -39,12 +39,14 @@ class ReservationPaymentTest extends TestCase
             'terrain_id' => $terrain->id,
             'date_debut' => $start->copy()->addHours(4)->toDateTimeString(),
             'date_fin' => $start->copy()->addHours(5)->toDateTimeString(),
+            'telephone_whatsapp' => '77 123 45 67',
         ])->assertStatus(409);
 
         $payload = [
             'terrain_id' => $terrain->id,
             'date_debut' => $start->toDateTimeString(),
             'date_fin' => $start->copy()->addHours(2)->toDateTimeString(),
+            'telephone_whatsapp' => '77 123 45 67',
         ];
         $reservationResponse = $this->postJson($clientReservationPath, $payload)
             ->assertCreated()
@@ -66,7 +68,8 @@ class ReservationPaymentTest extends TestCase
 
         $this->assertDatabaseHas('notifications', [
             'utilisateur_id' => $manager->id,
-            'titre' => 'Nouvelle réservation',
+            'titre' => 'Nouvelle demande de réservation',
+            'reservation_id' => $reservationId,
         ]);
 
         Auth::forgetGuards();
@@ -92,55 +95,6 @@ class ReservationPaymentTest extends TestCase
         $this->patchJson('/api/notifications/'.$notification->id.'/lu')
             ->assertOk()
             ->assertJsonPath('notification.lu', true);
-    }
-
-    public function test_payment_reference_and_paid_status_are_idempotent(): void
-    {
-        [$manager, $client, $terrain] = $this->createActorsAndTerrain();
-        $reservation = Reservation::create([
-            'utilisateur_id' => $client->id,
-            'terrain_id' => $terrain->id,
-            'date_debut' => now()->addDays(2),
-            'date_fin' => now()->addDays(2)->addHour(),
-            'montant_total' => 15000,
-            'statut' => 'CONFIRMEE',
-        ]);
-        $paymentPath = '/api/client/reservations/'.$reservation->id.'/paiements';
-        $paymentPayload = [
-            'methode' => 'WAVE',
-            'reference_transaction' => 'wave-reference-001',
-        ];
-
-        $this->actingAs($client, 'web')->postJson($paymentPath, $paymentPayload)
-            ->assertCreated()
-            ->assertJsonPath('paiement.montant', '15000.00')
-            ->assertJsonPath('paiement.statut', 'EN_ATTENTE');
-
-        $paymentId = $reservation->paiements()->firstOrFail()->id;
-
-        $this->postJson($paymentPath, $paymentPayload)->assertStatus(409);
-        $this->assertSame(1, $reservation->paiements()->count());
-
-        Auth::forgetGuards();
-        $managerStatusPath = '/api/gestionnaire/paiements/'.$paymentId.'/statut';
-        $this->actingAs($manager, 'web')->patchJson($managerStatusPath, ['statut' => 'PAYE'])
-            ->assertOk()
-            ->assertJsonPath('paiement.statut', 'PAYE');
-
-        $this->patchJson($managerStatusPath, ['statut' => 'PAYE'])
-            ->assertOk()
-            ->assertJsonPath('paiement.statut', 'PAYE');
-
-        Auth::forgetGuards();
-        $this->actingAs($client, 'web')->postJson($paymentPath, [
-            'methode' => 'ESPECES',
-        ])->assertStatus(409);
-
-        $this->assertSame(1, $reservation->paiements()->where('statut', 'PAYE')->count());
-        $this->assertDatabaseHas('notifications', [
-            'utilisateur_id' => $client->id,
-            'titre' => 'Paiement confirmé',
-        ]);
     }
 
     private function createActorsAndTerrain(): array

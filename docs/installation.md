@@ -2,9 +2,9 @@
 
 ## Prérequis
 
-- PHP ≥ 8.3 et Composer
+- PHP ≥ 8.3 et Composer (extensions `pdo_mysql`, `mbstring`, `openssl`, `fileinfo`, et `gd` pour les tests d'images)
 - MySQL (base `gestiondeterrain` par défaut)
-- Node.js et npm
+- Node.js 20+ et npm
 
 ## Backend
 
@@ -28,9 +28,18 @@ php artisan migrate --seed   # crée les tables, les communes et un utilisateur 
 php artisan serve            # http://localhost:8000
 ```
 
-Le seeder crée `test@example.com` (voir `UserFactory` pour le mot de passe) et charge les communes via `CommuneSeeder`.
+Le seeder charge les 19 communes de Dakar (`CommuneSeeder`) et crée deux comptes :
 
-Tests : `php artisan test`.
+| Rôle | E-mail | Mot de passe |
+| --- | --- | --- |
+| Administrateur | `ADMIN_EMAIL` (défaut `admin@example.com`) | `ADMIN_PASSWORD` (défaut `Admin1234!`) |
+| Client | `test@example.com` | `password` |
+
+Un compte gestionnaire se crée depuis l'espace administrateur (« Utilisateurs »).
+
+Variables utiles pour le géocodage (placement des terrains) : `NOMINATIM_USER_AGENT` (mettre un vrai contact en production, les adresses `example.com` sont refusées), `NOMINATIM_CA_BUNDLE` (certificats CA sous Windows).
+
+Tests : `php artisan test` (SQLite en mémoire, n'affecte pas la base MySQL).
 
 ## Frontend
 

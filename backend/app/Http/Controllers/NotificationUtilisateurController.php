@@ -8,14 +8,18 @@ use Illuminate\Http\Request;
 
 class NotificationUtilisateurController extends Controller
 {
+    /** Dernières notifications + nombre de non lues (interrogé régulièrement par la cloche de l'en-tête). */
     public function index(Request $request): JsonResponse
     {
+        $notifications = $request->user()->notificationsUtilisateur();
+
         return response()->json([
-            'notifications' => $request->user()
-                ->notificationsUtilisateur()
+            'notifications' => (clone $notifications)
                 ->orderByDesc('created_at')
-                ->limit(50)
+                ->orderByDesc('id')
+                ->limit(30)
                 ->get(),
+            'non_lues' => (clone $notifications)->where('lu', false)->count(),
         ]);
     }
 
@@ -27,5 +31,12 @@ class NotificationUtilisateurController extends Controller
         $notification->update(['lu' => true]);
 
         return response()->json(['notification' => $notification->fresh()]);
+    }
+
+    public function markAllAsRead(Request $request): JsonResponse
+    {
+        $updated = $request->user()->notificationsUtilisateur()->where('lu', false)->update(['lu' => true]);
+
+        return response()->json(['marquees' => $updated, 'non_lues' => 0]);
     }
 }

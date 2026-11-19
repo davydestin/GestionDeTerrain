@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createReservation, getTerrainAvailability } from '../../services/api.js'
+import { useAuth } from '../../contextes/useAuth.js'
+import { createReservation, getTerrainAvailability, readJson } from '../../services/api.js'
 
 function localDate(value) {
   const year = value.getFullYear()
@@ -10,16 +11,7 @@ function localDate(value) {
   return `${year}-${month}-${day}`
 }
 
-async function readResponse(response) {
-  const payload = await response.json().catch(() => ({}))
-
-  if (!response.ok) {
-    const validationMessage = Object.values(payload.errors || {}).flat()[0]
-    throw new Error(validationMessage || payload.message || 'Impossible de traiter la réservation.')
-  }
-
-  return payload
-}
+const readResponse = (response) => readJson(response, 'Impossible de traiter la réservation.')
 
 export default function ReservationForm({ terrain }) {
   const navigate = useNavigate()
@@ -28,6 +20,9 @@ export default function ReservationForm({ terrain }) {
     tomorrow.setDate(tomorrow.getDate() + 1)
     return localDate(tomorrow)
   })
+  const { user } = useAuth()
+  // Le gestionnaire contactera le client sur ce numéro pour convenir du paiement (aucun paiement en ligne).
+  const [whatsapp, setWhatsapp] = useState(user?.telephone || '')
   const [startTime, setStartTime] = useState('09:00')
   const [endTime, setEndTime] = useState('10:00')
   const [availabilityResult, setAvailabilityResult] = useState({ date: null, data: null, error: '' })
@@ -93,8 +88,11 @@ export default function ReservationForm({ terrain }) {
         terrain_id: terrain.id,
         date_debut: `${date} ${startTime}:00`,
         date_fin: `${date} ${endTime}:00`,
+        telephone_whatsapp: whatsapp.trim(),
       }))
-      navigate('/client/reservations')
+      navigate('/client/reservations', {
+        state: { notice: 'Demande envoyée ! Le gestionnaire va la valider puis vous écrire sur WhatsApp pour le paiement.' },
+      })
     } catch (requestError) {
       setSubmitError(requestError.message)
     } finally {
@@ -102,7 +100,7 @@ export default function ReservationForm({ terrain }) {
     }
   }
 
-  const canSubmit = availability?.ouvert && insideOpeningHours && !conflict && endTime > startTime
+  const canSubmit = availability?.ouvert && insideOpeningHours && !conflict && endTime > startTime && whatsapp.trim().length >= 9
 
   return (
     <form className="space-y-4" onSubmit={submit}>
@@ -111,7 +109,7 @@ export default function ReservationForm({ terrain }) {
         <p className="mt-1 font-heading text-xl font-semibold text-[#b6f23a]">
           {estimatedAmount.toLocaleString('fr-FR')} FCFA
         </p>
-        <p className="text-[10px] text-[#88927f]">Estimation; le montant définitif est calculé par le serveur.</p>
+        <p className="text-[10px] text-[#88927f]">Estimation · aucun paiement en ligne : vous réglez directement avec le gestionnaire.</p>
       </div>
 
       <label className="grid gap-1 text-[10px] font-bold text-[#cfd6c9]">
@@ -128,6 +126,22 @@ export default function ReservationForm({ terrain }) {
           <input className="h-10 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-normal text-white placeholder:text-white/30" onChange={(event) => setEndTime(event.target.value)} required type="time" value={endTime} />
         </label>
       </div>
+
+      <label className="grid gap-1 text-[10px] font-bold text-[#cfd6c9]">
+        Votre numéro WhatsApp
+        <input
+          autoComplete="tel"
+          className="h-10 rounded-xl border border-white/10 bg-white/[0.06] px-3 text-xs font-normal text-white placeholder:text-white/30"
+          inputMode="tel"
+          maxLength={25}
+          onChange={(event) => setWhatsapp(event.target.value)}
+          placeholder="77 123 45 67"
+          required
+          type="tel"
+          value={whatsapp}
+        />
+        <span className="font-normal text-[#88927f]">Le gestionnaire vous y contactera pour convenir du paiement.</span>
+      </label>
 
       {checking && <p className="text-xs text-[#88927f]">Vérification des disponibilités…</p>}
       {!checking && availability && (

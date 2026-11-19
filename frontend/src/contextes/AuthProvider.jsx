@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AuthContext } from './authContext.js'
-import { getCurrentUser, saveProfile, signIn, signOut, signUp } from '../services/authService.js'
+import { getCurrentUser, saveProfile, signIn, signInWithGoogle, signOut, signUp } from '../services/authService.js'
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -43,6 +43,14 @@ export default function AuthProvider({ children }) {
     return authenticatedUser
   }
 
+  async function loginWithGoogle(credential) {
+    setError('')
+    const authenticatedUser = await signInWithGoogle(credential)
+    setUser(authenticatedUser)
+    setStatus('authenticated')
+    return authenticatedUser
+  }
+
   async function logout() {
     setError('')
     await signOut()
@@ -58,7 +66,7 @@ export default function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, status, error, login, register, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, status, error, login, register, loginWithGoogle, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

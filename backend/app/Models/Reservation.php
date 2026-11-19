@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Support\PhoneNumber;
 
 class Reservation extends Model
 {
@@ -18,6 +18,8 @@ class Reservation extends Model
         'montant_total',
         'statut',
         'commentaire',
+        'motif_refus',
+        'telephone_whatsapp',
     ];
 
     protected function casts(): array
@@ -39,8 +41,9 @@ class Reservation extends Model
         return $this->belongsTo(Terrain::class)->withTrashed();
     }
 
-    public function paiements(): HasMany
+    /** Numéro au format wa.me (ex. « 221771234567 »), ou null s'il est absent ou invalide. */
+    public function whatsappNumber(): ?string
     {
-        return $this->hasMany(Paiement::class);
+        return PhoneNumber::toWhatsApp($this->telephone_whatsapp);
     }
 }

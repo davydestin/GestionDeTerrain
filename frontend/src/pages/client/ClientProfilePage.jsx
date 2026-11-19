@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contextes/useAuth.js'
+import Icon from '../../components/Icon.jsx'
 
 export default function ClientProfilePage() {
   const { user, updateProfile } = useAuth()
@@ -36,7 +37,7 @@ export default function ClientProfilePage() {
 
   return (
     <section className="mx-auto w-full max-w-3xl space-y-5 px-5 py-10">
-      <Link className="text-xs font-bold text-[#b6f23a] hover:underline" to="/client/reservations">← Mes réservations</Link>
+      <Link className="inline-flex items-center gap-1.5 text-xs font-bold text-[#b6f23a] hover:underline" to="/client/reservations"><Icon className="size-3.5" name="arrow-left" />Mes réservations</Link>
       <div>
         <p className="text-[11px] font-bold uppercase text-[#b6f23a]">Espace client</p>
         <h1 className="mt-1 font-heading text-3xl font-semibold uppercase text-[#f3f5ef]">Mon profil</h1>

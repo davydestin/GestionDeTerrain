@@ -1,11 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../contextes/useAuth.js'
-
-const roleHome = {
-  CLIENT: '/client/reservations',
-  GESTIONNAIRE: '/gestionnaire/terrains',
-  ADMINISTRATEUR: '/administrateur/utilisateurs',
-}
+import { rolePaths as roleHome } from '../components/roles.js'
 
 function LoadingSession() {
   return <main className="loading-screen">Chargement de la session…</main>
