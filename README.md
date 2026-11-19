@@ -259,6 +259,23 @@ classDiagram
 
 ---
 
+## Déploiement (Render + Vercel)
+
+| Partie | Hébergeur | Fichiers |
+| --- | --- | --- |
+| Backend Laravel + PostgreSQL | Render (Docker) | `render.yaml`, `backend/Dockerfile`, `backend/docker/start.sh` |
+| Frontend React | Vercel | `frontend/vercel.json`, `frontend/.env.production` |
+
+1. **Render** → *New* → *Blueprint* → dépôt `GestionDeTerrain`. Renseigner les variables demandées : `APP_URL`, `CORS_ALLOWED_ORIGINS` (adresse Vercel complète), `SANCTUM_STATEFUL_DOMAINS` (domaine Vercel sans `https://`), `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `NOMINATIM_USER_AGENT`. Au démarrage, le conteneur lance les migrations et crée le compte administrateur.
+2. **Vercel** → *Add New* → *Project* → même dépôt, **Root Directory : `frontend`**. Rien d'autre à configurer.
+3. **Google Cloud Console** : ajouter l'adresse Vercel aux origines JavaScript autorisées de l'ID client.
+
+Vercel relaie `/api` et `/sanctum` vers Render (`frontend/vercel.json`) : pour le navigateur, frontend et API sont sur le même site, ce qui permet aux cookies de session Sanctum de fonctionner. Si le service Render porte un autre nom que `gestiondeterrain-api`, mettre à jour son adresse dans `frontend/vercel.json`.
+
+> Plan gratuit : le backend s'endort après 15 min d'inactivité (premier chargement lent), la base PostgreSQL gratuite expire après 30 jours, et les photos envoyées sont perdues à chaque redéploiement (disque non persistant).
+
+---
+
 ## Tests et qualité
 
 ```bash

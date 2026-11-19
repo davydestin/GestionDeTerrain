@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\MapTerrainRequest;
+use App\Support\Search;
 use App\Http\Requests\NearbyTerrainRequest;
 use App\Http\Requests\SearchTerrainRequest;
 use App\Http\Requests\StoreTerrainRequest;
@@ -170,10 +171,10 @@ class TerrainController extends Controller
             ->when($filters['search'] ?? null, function (Builder $query, string $search): void {
                 $like = '%'.$search.'%';
                 $query->where(fn (Builder $nested) => $nested
-                    ->where('nom', 'like', $like)
-                    ->orWhere('quartier', 'like', $like)
-                    ->orWhere('adresse', 'like', $like)
-                    ->orWhere('type', 'like', $like));
+                    ->where('nom', Search::like(), $like)
+                    ->orWhere('quartier', Search::like(), $like)
+                    ->orWhere('adresse', Search::like(), $like)
+                    ->orWhere('type', Search::like(), $like));
             })
             ->when($filters['statut'] ?? null, fn (Builder $query, string $statut) => $query->where('statut', $statut))
             ->orderBy('nom')
@@ -276,9 +277,9 @@ class TerrainController extends Controller
             ->visiblesPour($viewer)
             ->when(isset($filters['commune_id']), fn (Builder $query) => $query->where('commune_id', $filters['commune_id']))
             ->when(isset($filters['commune']), fn (Builder $query) => $query->whereHas('commune', fn (Builder $communeQuery) => $communeQuery->where('nom', $filters['commune'])))
-            ->when(isset($filters['quartier']), fn (Builder $query) => $query->where('quartier', 'like', '%'.$filters['quartier'].'%'))
+            ->when(isset($filters['quartier']), fn (Builder $query) => $query->where('quartier', Search::like(), '%'.$filters['quartier'].'%'))
             // « type » = revêtement du terrain de foot (gazon synthétique, gazon naturel…) : recherche partielle.
-            ->when(isset($filters['type']), fn (Builder $query) => $query->where('type', 'like', '%'.$filters['type'].'%'))
+            ->when(isset($filters['type']), fn (Builder $query) => $query->where('type', Search::like(), '%'.$filters['type'].'%'))
             ->when(isset($filters['min_price']), fn (Builder $query) => $query->where('tarif_horaire', '>=', $filters['min_price']))
             ->when(isset($filters['max_price']), fn (Builder $query) => $query->where('tarif_horaire', '<=', $filters['max_price']))
             ->with(['commune:id,nom', 'indisponibiliteEnCours']);

@@ -1,0 +1,70 @@
+# Blueprint Render : backend Laravel (Docker) + base PostgreSQL.
+# Render → New → Blueprint → choisir ce dépôt. Les variables « sync: false » sont demandées à la création.
+#
+# Autre base (MySQL hébergé ailleurs…) : supprimer la section « databases » et remplacer DB_CONNECTION / DB_URL
+# par DB_CONNECTION=mysql et DB_URL=mysql://utilisateur:motdepasse@hote:3306/base (sync: false).
+
+services:
+  - type: web
+    name: gestiondeterrain-api          # URL : https://gestiondeterrain-api.onrender.com (utilisée dans frontend/vercel.json)
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: frankfurt
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: GestionDeTerrain
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        sync: false                     # adresse Vercel, ex. https://gestion-de-terrain.vercel.app
+      - key: APP_LOCALE
+        value: fr
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        fromDatabase:
+          name: gestiondeterrain-db
+          property: connectionString
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SANCTUM_STATEFUL_DOMAINS
+        sync: false                     # domaine Vercel sans https://, ex. gestion-de-terrain.vercel.app
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false                     # adresse Vercel complète, ex. https://gestion-de-terrain.vercel.app
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stack
+      - key: LOG_STACK
+        value: daily
+      - key: LOG_DAILY_DAYS
+        value: "14"
+      - key: LOG_LEVEL
+        value: warning
+      - key: GOOGLE_CLIENT_ID
+        value: 385339172439-a5ropvpudcorl0ho51407513cfa92aic.apps.googleusercontent.com
+      - key: NOMINATIM_USER_AGENT
+        sync: false                     # ex. GestionDeTerrain/1.0 (votre-email@domaine.sn) : contact réel exigé
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false                     # mot de passe fort : compte administrateur créé au premier démarrage
+
+databases:
+  - name: gestiondeterrain-db
+    databaseName: gestiondeterrain
+    plan: free
+    region: frankfurt

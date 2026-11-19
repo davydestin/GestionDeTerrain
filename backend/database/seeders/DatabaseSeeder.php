@@ -18,7 +18,22 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(CommuneSeeder::class);
 
-        // User::factory(10)->create();
+        // En production (seeder relancé à chaque démarrage) : pas de comptes de démonstration ni de mot de passe
+        // par défaut. L'administrateur est créé une seule fois, avec ADMIN_EMAIL / ADMIN_PASSWORD fournis par
+        // l'hébergeur, puis son mot de passe n'est plus écrasé.
+        if (app()->environment('production')) {
+            if (filled(env('ADMIN_EMAIL')) && filled(env('ADMIN_PASSWORD'))) {
+                User::firstOrCreate(['email' => env('ADMIN_EMAIL')], [
+                    'nom' => 'Admin',
+                    'prenom' => 'Gestion',
+                    'password' => Hash::make(env('ADMIN_PASSWORD')),
+                    'role' => User::ROLE_ADMINISTRATEUR,
+                    'statut' => true,
+                ]);
+            }
+
+            return;
+        }
 
         User::updateOrCreate(['email' => env('ADMIN_EMAIL', 'admin@example.com')], [
             'nom' => 'Admin',

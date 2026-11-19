@@ -1,4 +1,6 @@
-const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+// VITE_API_URL : adresse de l'API. « / » = même site que le frontend (en production, Vercel relaie
+// /api et /sanctum vers le backend, voir vercel.json). Absent : API locale sur le port 8000.
+const apiBaseUrl = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 
 function getXsrfToken() {
   const cookie = document.cookie

@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        // Hébergement derrière un proxy (Render, Vercel) : TRUSTED_PROXIES=* pour lire le vrai protocole (https)
+        // et l'IP du client dans X-Forwarded-*. Vide en local : aucun en-tête de proxy n'est cru.
+        if ($proxies = env('TRUSTED_PROXIES')) {
+            $middleware->trustProxies(at: $proxies === '*' ? '*' : explode(',', $proxies));
+        }
         $middleware->alias([
             'role' => EnsureUserHasRole::class,
             'active' => EnsureUserIsActive::class,

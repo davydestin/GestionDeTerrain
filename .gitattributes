@@ -1,0 +1,3 @@
+# Scripts exécutés dans des conteneurs Linux : toujours avec des fins de ligne LF.
+*.sh text eol=lf
+backend/Dockerfile text eol=lf

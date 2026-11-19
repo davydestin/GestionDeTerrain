@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\Search;
 use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Http\JsonResponse;
@@ -26,10 +27,10 @@ class UserRoleController extends Controller
             ->when($filters['search'] ?? null, function ($query, string $search): void {
                 $query->where(function ($query) use ($search): void {
                     $like = '%'.$search.'%';
-                    $query->where('nom', 'like', $like)
-                        ->orWhere('prenom', 'like', $like)
-                        ->orWhere('email', 'like', $like)
-                        ->orWhere('telephone', 'like', $like);
+                    $query->where('nom', Search::like(), $like)
+                        ->orWhere('prenom', Search::like(), $like)
+                        ->orWhere('email', Search::like(), $like)
+                        ->orWhere('telephone', Search::like(), $like);
                 });
             })
             ->when(isset($filters['role']), fn ($query) => $query->where('role', $filters['role']))

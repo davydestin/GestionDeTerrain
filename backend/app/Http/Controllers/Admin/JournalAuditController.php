@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Support\Search;
 use App\Models\JournalAudit;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -32,13 +33,13 @@ class JournalAuditController extends Controller
             ->when($filters['search'] ?? null, function ($query, string $search): void {
                 $like = '%'.$search.'%';
                 $query->where(fn ($query) => $query
-                    ->where('description', 'like', $like)
-                    ->orWhere('utilisateur_nom', 'like', $like)
-                    ->orWhere('utilisateur_email', 'like', $like)
-                    ->orWhere('adresse_ip', 'like', $like));
+                    ->where('description', Search::like(), $like)
+                    ->orWhere('utilisateur_nom', Search::like(), $like)
+                    ->orWhere('utilisateur_email', Search::like(), $like)
+                    ->orWhere('adresse_ip', Search::like(), $like));
             })
             ->when($filters['action'] ?? null, fn ($query, $action) => $query->where('action', $action))
-            ->when($filters['categorie'] ?? null, fn ($query, $categorie) => $query->where('action', 'like', $categorie.'.%'))
+            ->when($filters['categorie'] ?? null, fn ($query, $categorie) => $query->where('action', Search::like(), $categorie.'.%'))
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('utilisateur_role', $role))
             ->when($filters['utilisateur_id'] ?? null, fn ($query, $id) => $query->where('utilisateur_id', $id))
             ->when($filters['du'] ?? null, fn ($query, $date) => $query->where('created_at', '>=', $date.' 00:00:00'))
