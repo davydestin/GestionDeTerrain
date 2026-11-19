@@ -1,5 +1,5 @@
 # Image de production du backend Laravel (Render, ou tout hébergeur Docker).
-FROM php:8.3-apache
+FROM php:8.4-apache
 
 # Extensions PHP : MySQL ou PostgreSQL, intl (dates en français), zip (Composer).
 RUN apt-get update \
